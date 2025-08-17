@@ -1,0 +1,88 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>AI Interview</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 720px; margin: 20px auto; }
+    #chat { border: 1px solid #ddd; padding: 12px; height: 380px; overflow-y: auto; }
+    .msg { margin-bottom: 10px; }
+    .q { font-weight: 600; }
+    .a { margin-left: 12px; }
+    .row { display: flex; gap: 8px; margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <h2>Start Interview</h2>
+  <form id="startForm">
+    <input type="text" name="user_name" placeholder="Your name" required />
+    <input type="email" name="user_email" placeholder="Your email" />
+    <br><br>
+    Resume (PDF): <input type="file" name="resume" accept="application/pdf" required />
+    JD (PDF): <input type="file" name="jd" accept="application/pdf" required />
+    <br><br>
+    <button>Start</button>
+  </form>
+
+  <h2>Interview</h2>
+  <div id="chat"></div>
+  <div class="row">
+    <input id="answer" placeholder="Type your answer..." style="flex:1" />
+    <button id="send">Send</button>
+    <button id="skip">Skip</button>
+  </div>
+  <br>
+  <button id="end">End & Get Feedback</button>
+
+<script>
+const N8N_BASE = "https://YOUR_N8N_HOST/webhook";
+let session_id = null;
+let question_id = null;
+
+const chat = document.getElementById('chat');
+function addMsg(html){ const div=document.createElement('div'); div.className='msg'; div.innerHTML=html; chat.appendChild(div); chat.scrollTop=chat.scrollHeight; }
+
+document.getElementById('startForm').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const res = await fetch(`${N8N_BASE}/interview/start`, { method:'POST', body: fd });
+  const data = await res.json();
+  session_id = data.session_id;
+  question_id = data.question_id;
+  addMsg(`<div class="q">Q: ${data.question_text}</div>`);
+});
+
+async function sendAnswer(isSkipped){
+  if(!session_id || !question_id) return;
+  const answer = document.getElementById('answer').value.trim();
+  const payload = {
+    session_id, question_id,
+    is_skipped: !!isSkipped,
+    answer_text: isSkipped ? "" : answer
+  };
+  const res = await fetch(`${N8N_BASE}/interview/answer`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(payload)
+  });
+  const data = await res.json();
+  if(!isSkipped) addMsg(`<div class="a">A: ${answer || '(blank)'}</div>`);
+  question_id = data.question_id;
+  addMsg(`<div class="q">Q: ${data.question_text}</div>`);
+  document.getElementById('answer').value = '';
+}
+
+document.getElementById('send').onclick = ()=> sendAnswer(false);
+document.getElementById('skip').onclick = ()=> { addMsg(`<div class="a">(skipped)</div>`); sendAnswer(true); };
+
+document.getElementById('end').onclick = async ()=>{
+  if(!session_id) return;
+  const res = await fetch(`${N8N_BASE}/interview/end`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ session_id })
+  });
+  const data = await res.json();
+  addMsg(`<div class="q">Feedback:</div><div class="a">${data.feedback.replace(/\n/g,'<br>')}</div>`);
+};
+</script>
+</body>
+</html>
