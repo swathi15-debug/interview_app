@@ -35,7 +35,7 @@
   <button id="end">End & Get Feedback</button>
 
 <script>
-const N8N_BASE = "https://YOUR_N8N_HOST/webhook";
+const N8N_BASE = "http://localhost:5678/webhook-test";
 let session_id = null;
 let question_id = null;
 
@@ -45,7 +45,7 @@ function addMsg(html){ const div=document.createElement('div'); div.className='m
 document.getElementById('startForm').addEventListener('submit', async (e)=>{
   e.preventDefault();
   const fd = new FormData(e.target);
-  const res = await fetch(`${N8N_BASE}/interview/start`, { method:'POST', body: fd });
+  const res = await fetch(`http://localhost:5678/webhook-test/interview/start`, { method:'POST', body: fd });
   const data = await res.json();
   session_id = data.session_id;
   question_id = data.question_id;
@@ -60,7 +60,7 @@ async function sendAnswer(isSkipped){
     is_skipped: !!isSkipped,
     answer_text: isSkipped ? "" : answer
   };
-  const res = await fetch(`${N8N_BASE}/interview/answer`, {
+  const res = await fetch(`http://localhost:5678/webhook-test/interview/answer`, {
     method:'POST', headers:{'Content-Type':'application/json'},
     body: JSON.stringify(payload)
   });
@@ -76,7 +76,7 @@ document.getElementById('skip').onclick = ()=> { addMsg(`<div class="a">(skipped
 
 document.getElementById('end').onclick = async ()=>{
   if(!session_id) return;
-  const res = await fetch(`${N8N_BASE}/interview/end`, {
+  const res = await fetch(`http://localhost:5678/webhook-test/interview/end`, {
     method:'POST', headers:{'Content-Type':'application/json'},
     body: JSON.stringify({ session_id })
   });
