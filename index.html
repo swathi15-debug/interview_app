@@ -249,6 +249,17 @@
             margin: 10px 0;
             border-left: 4px solid #c62828;
         }
+
+        .debug-info {
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 12px;
+            margin: 10px 0;
+            max-height: 200px;
+            overflow-y: auto;
+        }
     </style>
 </head>
 <body>
@@ -279,6 +290,7 @@
             </div>
             
             <div id="errorMessage" class="error-message" style="display: none;"></div>
+            <div id="debugInfo" class="debug-info" style="display: none;"></div>
         </div>
 
         <div class="progress-bar">
@@ -333,13 +345,37 @@
             interviewStarted: false
         };
 
-        // Replace with your actual n8n webhook URL
+        // UPDATED: Make sure this URL matches your n8n webhook exactly
         const WEBHOOK_URL = "https://swathigude.app.n8n.cloud/webhook/interview-webhook1";
+        
+        // Debug mode - set to false in production
+        const DEBUG_MODE = true;
+
+        function showDebug(message, data = null) {
+            if (!DEBUG_MODE) return;
+            
+            const debugDiv = document.getElementById('debugInfo');
+            const timestamp = new Date().toLocaleTimeString();
+            let debugText = `[${timestamp}] ${message}`;
+            
+            if (data) {
+                debugText += '\n' + JSON.stringify(data, null, 2);
+            }
+            
+            debugDiv.innerHTML = debugText + '\n\n' + debugDiv.innerHTML;
+            debugDiv.style.display = 'block';
+            
+            // Also log to console
+            console.log(message, data);
+        }
 
         function showError(message) {
             const errorDiv = document.getElementById('errorMessage');
             errorDiv.textContent = message;
             errorDiv.style.display = 'block';
+            
+            showDebug(`ERROR: ${message}`);
+            
             setTimeout(() => {
                 errorDiv.style.display = 'none';
             }, 5000);
@@ -366,6 +402,8 @@
                 info.innerHTML = `📎 ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`;
                 info.style.display = 'block';
                 
+                showDebug(`File selected: ${type}`, { name: file.name, size: file.size });
+                
                 checkFilesReady();
             }
         }
@@ -376,6 +414,12 @@
             const startBtn = document.getElementById('startInterview');
             
             startBtn.disabled = !(resumeFile && jdFile);
+            
+            showDebug('Files ready check', { 
+                resumeReady: !!resumeFile, 
+                jdReady: !!jdFile, 
+                canStart: !startBtn.disabled 
+            });
         }
 
         async function startInterview() {
@@ -389,42 +433,56 @@
 
             showLoading(true);
             updateProgress(20);
+            showDebug('Starting interview', { resumeFile: resumeFile.name, jdFile: jdFile.name });
 
             try {
-                // Create FormData for file upload
+                // FIXED: Ensure proper FormData structure
                 const formData = new FormData();
                 formData.append('resume', resumeFile);
                 formData.append('jobDescription', jdFile);
                 formData.append('action', 'start_interview');
+                formData.append('timestamp', new Date().toISOString());
 
                 updateProgress(40);
+                showDebug('Sending request to webhook', { url: WEBHOOK_URL });
 
-                console.log('Sending request to:', WEBHOOK_URL);
+                // ENHANCED: Better error handling and timeout
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
 
-                // Send to n8n webhook
                 const response = await fetch(WEBHOOK_URL, {
                     method: 'POST',
-                    body: formData
+                    body: formData,
+                    signal: controller.signal,
+                    headers: {
+                        // Don't set Content-Type for FormData - let browser set it
+                    }
                 });
 
+                clearTimeout(timeoutId);
                 updateProgress(70);
 
-                console.log('Response status:', response.status);
+                showDebug('Response received', { 
+                    status: response.status, 
+                    statusText: response.statusText,
+                    headers: Object.fromEntries(response.headers.entries())
+                });
                 
                 if (!response.ok) {
                     const errorText = await response.text();
-                    console.error('Server response:', errorText);
-                    throw new Error(`Server error: ${response.status} - ${errorText}`);
+                    showDebug('Server error response', { errorText });
+                    throw new Error(`Server error: ${response.status} - ${response.statusText}\n${errorText}`);
                 }
 
                 const result = await response.json();
-                console.log('Server result:', result);
+                showDebug('Parsed result', result);
                 
                 if (!result.success) {
                     throw new Error(result.message || 'Server returned error');
                 }
                 
-                interviewData.sessionId = result.sessionId || Date.now().toString();
+                // FIXED: Better session ID generation
+                interviewData.sessionId = result.sessionId || `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
                 interviewData.interviewStarted = true;
 
                 updateProgress(100);
@@ -437,16 +495,31 @@
                 // Add first AI question
                 if (result.firstQuestion) {
                     addMessage(result.firstQuestion, 'ai');
+                    interviewData.conversationHistory.push({
+                        role: 'assistant',
+                        content: result.firstQuestion,
+                        timestamp: new Date().toISOString()
+                    });
                     interviewData.currentQuestion = 1;
                     updateProgress((interviewData.currentQuestion / interviewData.totalQuestions) * 100);
                 } else {
-                    showError('No opening question received from server');
+                    // Fallback question if none provided
+                    const fallbackQuestion = "Hello! Let's begin your interview. Can you start by telling me about yourself and your professional background?";
+                    addMessage(fallbackQuestion, 'ai');
+                    interviewData.conversationHistory.push({
+                        role: 'assistant',
+                        content: fallbackQuestion,
+                        timestamp: new Date().toISOString()
+                    });
+                    interviewData.currentQuestion = 1;
+                    updateProgress((interviewData.currentQuestion / interviewData.totalQuestions) * 100);
                 }
 
             } catch (error) {
                 console.error('Error starting interview:', error);
                 showLoading(false);
                 showError(`Error processing documents: ${error.message}`);
+                showDebug('Start interview error', { error: error.message, stack: error.stack });
             }
         }
 
@@ -455,6 +528,8 @@
             const message = input.value.trim();
             
             if (!message) return;
+
+            showDebug('Sending message', { message, currentQuestion: interviewData.currentQuestion });
 
             // Add user message to chat
             addMessage(message, 'user');
@@ -473,27 +548,48 @@
             try {
                 const shouldContinue = interviewData.currentQuestion < interviewData.totalQuestions;
                 
-                const requestBody = {
+                // FIXED: Consistent request structure
+                const requestData = {
                     action: shouldContinue ? 'continue_interview' : 'generate_feedback',
                     sessionId: interviewData.sessionId,
                     userResponse: message,
-                    conversationHistory: JSON.stringify(interviewData.conversationHistory),
-                    questionCount: interviewData.currentQuestion
+                    conversationHistory: interviewData.conversationHistory, // Send as array, not stringified
+                    currentQuestion: interviewData.currentQuestion,
+                    totalQuestions: interviewData.totalQuestions,
+                    timestamp: new Date().toISOString()
                 };
 
-                console.log('Sending message request:', requestBody);
+                showDebug('Sending message request', requestData);
+
+                // ENHANCED: Better timeout and error handling
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 20000); // 20 second timeout
 
                 const response = await fetch(WEBHOOK_URL, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify(requestBody)
+                    body: JSON.stringify(requestData),
+                    signal: controller.signal
                 });
 
-                const result = await response.json();
-                console.log('Message response:', result);
+                clearTimeout(timeoutId);
                 showTyping(false);
+
+                showDebug('Message response', { 
+                    status: response.status, 
+                    statusText: response.statusText 
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    showDebug('Message error response', { errorText });
+                    throw new Error(`Server error: ${response.status} - ${response.statusText}\n${errorText}`);
+                }
+
+                const result = await response.json();
+                showDebug('Message result', result);
 
                 if (!result.success) {
                     throw new Error(result.message || 'Server error');
@@ -511,49 +607,74 @@
                             content: result.nextQuestion,
                             timestamp: new Date().toISOString()
                         });
+                        
+                        showDebug('Added next question', { 
+                            question: result.nextQuestion, 
+                            currentQuestion: interviewData.currentQuestion 
+                        });
                     }, 1500);
                 } else if (!shouldContinue || result.shouldEndInterview) {
                     // End interview
                     addMessage("Thank you for completing the interview! Generating your feedback...", 'ai');
                     setTimeout(() => generateFinalFeedback(), 2000);
+                } else if (result.feedback) {
+                    // Direct feedback provided
+                    document.getElementById('chatSection').style.display = 'none';
+                    showFeedback(result.feedback);
                 }
 
             } catch (error) {
                 console.error('Error processing answer:', error);
                 showTyping(false);
-                addMessage("I'm having trouble processing your response. Could you please try again?", 'ai');
-                showError(`Error: ${error.message}`);
+                
+                if (error.name === 'AbortError') {
+                    addMessage("Request timed out. Please check your connection and try again.", 'ai');
+                    showError('Request timed out');
+                } else {
+                    addMessage("I'm having trouble processing your response. Could you please try again?", 'ai');
+                    showError(`Error: ${error.message}`);
+                }
+                
+                showDebug('Send message error', { error: error.message, stack: error.stack });
             }
         }
 
         async function generateFinalFeedback() {
+            showDebug('Generating final feedback');
+            
             try {
-                const requestBody = {
+                const requestData = {
                     action: 'generate_feedback',
                     sessionId: interviewData.sessionId,
-                    conversationHistory: JSON.stringify(interviewData.conversationHistory)
+                    conversationHistory: interviewData.conversationHistory,
+                    totalQuestions: interviewData.totalQuestions,
+                    timestamp: new Date().toISOString()
                 };
+
+                showDebug('Feedback request', requestData);
 
                 const response = await fetch(WEBHOOK_URL, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify(requestBody)
+                    body: JSON.stringify(requestData)
                 });
 
                 const result = await response.json();
+                showDebug('Feedback result', result);
                 
                 if (result.success && result.feedback) {
                     document.getElementById('chatSection').style.display = 'none';
                     showFeedback(result.feedback);
                 } else {
-                    showError('Failed to generate feedback');
+                    showError('Failed to generate feedback: ' + (result.message || 'Unknown error'));
                 }
 
             } catch (error) {
                 console.error('Error generating feedback:', error);
-                showError('Failed to generate feedback');
+                showError('Failed to generate feedback: ' + error.message);
+                showDebug('Generate feedback error', { error: error.message, stack: error.stack });
             }
         }
 
@@ -588,6 +709,8 @@
             const scoreDiv = document.getElementById('overallScore');
             const contentDiv = document.getElementById('feedbackContent');
             
+            showDebug('Showing feedback', feedback);
+            
             // Parse feedback if it's a string
             let feedbackData = feedback;
             if (typeof feedback === 'string') {
@@ -598,7 +721,8 @@
                         overallScore: 'N/A',
                         strengths: feedback.substring(0, 200) + '...',
                         improvements: 'See full feedback above',
-                        recommendations: 'Continue developing your skills'
+                        recommendations: 'Continue developing your skills',
+                        fullText: feedback
                     };
                 }
             }
@@ -606,6 +730,14 @@
             scoreDiv.textContent = `Overall Score: ${feedbackData.overallScore || 'N/A'}`;
             
             let feedbackHTML = '';
+            
+            if (feedbackData.fullText) {
+                feedbackHTML += `<div class="feedback-item">
+                    <h4>📋 Complete Feedback</h4>
+                    <p>${feedbackData.fullText}</p>
+                </div>`;
+            }
+            
             if (feedbackData.strengths) {
                 feedbackHTML += `<div class="feedback-item">
                     <h4>💪 Strengths</h4>
@@ -708,6 +840,8 @@
                     fileInput.dispatchEvent(event);
                 }
             }
+            
+            showDebug('Application initialized');
         });
     </script>
 </body>
