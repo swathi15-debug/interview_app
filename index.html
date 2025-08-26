@@ -492,7 +492,7 @@
             <h3>📁 Document Upload</h3>
             
             <div class="upload-grid">
-                <div class="upload-area" id="resumeUpload" onclick="document.getElementById('resumeFile').click()">
+                <div class="upload-area" id="resumeUpload" onclick="triggerFileUpload('resumeFile')">
                     <div class="upload-icon">📄</div>
                     <p><strong>Resume (PDF)</strong></p>
                     <p>Click or drag your resume here</p>
@@ -500,7 +500,7 @@
                     <div id="resumeInfo" class="file-info" style="display: none;"></div>
                 </div>
 
-                <div class="upload-area" id="jdUpload" onclick="document.getElementById('jdFile').click()">
+                <div class="upload-area" id="jdUpload" onclick="triggerFileUpload('jdFile')">
                     <div class="upload-icon">📋</div>
                     <p><strong>Job Description (PDF)</strong></p>
                     <p>Click or drag job description here</p>
@@ -573,6 +573,7 @@
     </div>
 
     <script>
+        // Global variables
         let interviewData = {
             sessionId: null,
             resumeContent: '',
@@ -593,7 +594,7 @@
 
         let sessionTimer;
 
-        // Initialize the application
+        // Initialize the application when DOM is loaded
         document.addEventListener('DOMContentLoaded', function() {
             initializeApp();
             setupDragAndDrop();
@@ -678,6 +679,13 @@
                 Math.round((interviewData.currentQuestion / interviewData.totalQuestions) * 100) + '%';
         }
 
+        function updateQuestionCounter() {
+            const counter = document.getElementById('questionCounter');
+            if (counter) {
+                counter.textContent = `Question ${interviewData.currentQuestion} of ${interviewData.totalQuestions}`;
+            }
+        }
+
         function showDebug(message, data = null) {
             if (!DEBUG_MODE) return;
             
@@ -707,6 +715,10 @@
             setTimeout(() => {
                 errorDiv.style.display = 'none';
             }, 8000);
+        }
+
+        function triggerFileUpload(inputId) {
+            document.getElementById(inputId).click();
         }
 
         function handleFileSelect(input, type) {
@@ -887,11 +899,4 @@
                     userResponse: message,
                     conversationHistory: interviewData.conversationHistory,
                     currentQuestion: interviewData.currentQuestion,
-                    totalQuestions: interviewData.totalQuestions,
-                    timestamp: new Date().toISOString()
-                };
-
-                showDebug(`Sending ${action.toUpperCase()} request`, requestData);
-
-                const controller = new AbortController();
-                const timeout
+                    totalQuestions: interviewData.
