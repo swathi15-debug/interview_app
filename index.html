@@ -1,50 +1,231 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AI Interview Assistant</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #f4f4f9; }
-    .container { max-width: 700px; margin: auto; padding: 20px; }
-    h1 { text-align: center; }
-    #uploadSection, #chatSection, #feedbackSection { margin-top: 20px; }
-    .chat-box { border: 1px solid #ccc; border-radius: 8px; padding: 10px; height: 300px; overflow-y: auto; background: #fff; }
-    .chat-message { margin: 10px 0; }
-    .chat-message.user { text-align: right; color: #0066cc; }
-    .chat-message.ai { text-align: left; color: #333; }
-    #chatInput { width: 80%; padding: 8px; }
-    button { padding: 8px 14px; margin-left: 5px; cursor: pointer; border: none; border-radius: 4px; background: #0066cc; color: white; }
-    button:hover { background: #004c99; }
-    #errorMessage { color: red; display: none; margin-top: 10px; }
-    #progressBar { width: 100%; height: 12px; background: #ddd; margin-top: 15px; border-radius: 6px; overflow: hidden; }
-    #progressFill { height: 100%; width: 0%; background: #28a745; transition: width 0.3s; }
+    * {
+      box-sizing: border-box;
+    }
+    
+    body { 
+      font-family: Arial, sans-serif; 
+      margin: 0; 
+      padding: 20px; 
+      background: #f4f4f9; 
+      line-height: 1.6;
+    }
+    
+    .container { 
+      max-width: 700px; 
+      margin: 0 auto; 
+      padding: 20px; 
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    
+    h1 { 
+      text-align: center; 
+      color: #333;
+      margin-bottom: 30px;
+    }
+    
+    h2 {
+      color: #333;
+      margin-top: 0;
+    }
+    
+    #uploadSection, #chatSection, #feedbackSection { 
+      margin-top: 20px; 
+    }
+    
+    .file-input-group {
+      margin-bottom: 15px;
+    }
+    
+    .file-input-group label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+      color: #555;
+    }
+    
+    input[type="file"] {
+      width: 100%;
+      padding: 8px;
+      border: 2px dashed #ddd;
+      border-radius: 4px;
+      background: #fafafa;
+    }
+    
+    input[type="file"]:hover {
+      border-color: #0066cc;
+    }
+    
+    .chat-box { 
+      border: 1px solid #ccc; 
+      border-radius: 8px; 
+      padding: 15px; 
+      height: 300px; 
+      overflow-y: auto; 
+      background: #fff; 
+      margin-bottom: 10px;
+    }
+    
+    .chat-message { 
+      margin: 10px 0; 
+      padding: 8px 12px;
+      border-radius: 8px;
+      max-width: 80%;
+      word-wrap: break-word;
+    }
+    
+    .chat-message.user { 
+      text-align: right; 
+      color: white;
+      background: #0066cc;
+      margin-left: auto;
+    }
+    
+    .chat-message.ai { 
+      text-align: left; 
+      color: #333; 
+      background: #f0f0f0;
+      margin-right: auto;
+    }
+    
+    .chat-input-container {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+    
+    #chatInput { 
+      flex: 1;
+      padding: 10px; 
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    
+    button { 
+      padding: 10px 20px; 
+      cursor: pointer; 
+      border: none; 
+      border-radius: 4px; 
+      background: #0066cc; 
+      color: white; 
+      font-size: 14px;
+      transition: background 0.3s;
+    }
+    
+    button:hover { 
+      background: #004c99; 
+    }
+    
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    
+    #errorMessage { 
+      color: #dc3545; 
+      background: #f8d7da;
+      border: 1px solid #f5c6cb;
+      padding: 10px;
+      border-radius: 4px;
+      display: none; 
+      margin-top: 10px; 
+    }
+    
+    #progressBar { 
+      width: 100%; 
+      height: 12px; 
+      background: #ddd; 
+      margin-top: 15px; 
+      border-radius: 6px; 
+      overflow: hidden; 
+    }
+    
+    #progressFill { 
+      height: 100%; 
+      width: 0%; 
+      background: #28a745; 
+      transition: width 0.3s ease; 
+    }
+    
+    .progress-text {
+      text-align: center;
+      margin-top: 5px;
+      font-size: 12px;
+      color: #666;
+    }
+    
+    #feedbackContent {
+      background: #f8f9fa;
+      padding: 20px;
+      border-radius: 8px;
+      border: 1px solid #dee2e6;
+      white-space: pre-wrap;
+      line-height: 1.6;
+    }
+    
+    .loading {
+      display: none;
+      text-align: center;
+      color: #666;
+      font-style: italic;
+    }
+    
+    .section-hidden {
+      display: none !important;
+    }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>AI Interview Assistant</h1>
+    <h1>🤖 AI Interview Assistant</h1>
 
     <!-- Upload Section -->
     <div id="uploadSection">
-      <p>Upload Resume (PDF) and Job Description (PDF):</p>
-      <input type="file" id="resumeFile" accept="application/pdf" />
-      <input type="file" id="jdFile" accept="application/pdf" />
-      <button onclick="startInterview()">Start Interview</button>
+      <p><strong>Welcome to your AI-powered interview practice session!</strong></p>
+      <p>Please upload your resume and the job description to get started:</p>
+      
+      <div class="file-input-group">
+        <label for="resumeFile">📄 Resume (PDF):</label>
+        <input type="file" id="resumeFile" accept="application/pdf" />
+      </div>
+      
+      <div class="file-input-group">
+        <label for="jdFile">📋 Job Description (PDF):</label>
+        <input type="file" id="jdFile" accept="application/pdf" />
+      </div>
+      
+      <button onclick="startInterview()" id="startBtn">🚀 Start Interview</button>
+      <div class="loading" id="startLoading">Starting interview...</div>
     </div>
 
     <!-- Chat Section -->
-    <div id="chatSection" style="display:none;">
+    <div id="chatSection" class="section-hidden">
       <div class="chat-box" id="chatBox"></div>
-      <input type="text" id="chatInput" placeholder="Type your answer..." />
-      <button onclick="sendMessage()">Send</button>
-      <div id="progressBar"><div id="progressFill"></div></div>
+      <div class="chat-input-container">
+        <input type="text" id="chatInput" placeholder="Type your answer here..." />
+        <button onclick="sendMessage()" id="sendBtn">Send</button>
+      </div>
+      <div id="progressBar">
+        <div id="progressFill"></div>
+      </div>
+      <div class="progress-text" id="progressText">Question 0 of 8</div>
+      <div class="loading" id="chatLoading">Processing your response...</div>
     </div>
 
     <!-- Feedback Section -->
-    <div id="feedbackSection" style="display:none;">
-      <h2>Interview Feedback</h2>
-      <div id="feedbackContent"></div>
+    <div id="feedbackSection" class="section-hidden">
+      <h2>📊 Interview Feedback</h2>
+      <div id="feedbackContent">Your detailed feedback will appear here...</div>
+      <button onclick="resetInterview()" style="margin-top: 20px;">🔄 Start New Interview</button>
     </div>
 
     <div id="errorMessage"></div>
@@ -61,11 +242,20 @@
 
     const WEBHOOK_URL = "https://swathigude.app.n8n.cloud/webhook/interview-webhook1";
 
+    // Utility functions
     function showError(msg) {
-      const e = document.getElementById("errorMessage");
-      e.textContent = msg;
-      e.style.display = "block";
-      setTimeout(() => e.style.display = "none", 5000);
+      const errorEl = document.getElementById("errorMessage");
+      errorEl.textContent = msg;
+      errorEl.style.display = "block";
+      setTimeout(() => errorEl.style.display = "none", 5000);
+      console.error("Error:", msg);
+    }
+
+    function showLoading(elementId, show = true) {
+      const element = document.getElementById(elementId);
+      if (element) {
+        element.style.display = show ? "block" : "none";
+      }
     }
 
     function addMessage(text, sender) {
@@ -75,16 +265,57 @@
       msg.textContent = text;
       chatBox.appendChild(msg);
       chatBox.scrollTop = chatBox.scrollHeight;
+      
+      // Store in conversation history
+      interviewData.conversationHistory.push({
+        sender: sender,
+        message: text,
+        timestamp: new Date().toISOString()
+      });
     }
 
-    function updateProgress(percent) {
+    function updateProgress(questionNum) {
+      const percent = (questionNum / interviewData.totalQuestions) * 100;
       document.getElementById("progressFill").style.width = percent + "%";
+      document.getElementById("progressText").textContent = `Question ${questionNum} of ${interviewData.totalQuestions}`;
+    }
+
+    function validateFiles() {
+      const resumeFile = document.getElementById("resumeFile").files[0];
+      const jdFile = document.getElementById("jdFile").files[0];
+      
+      if (!resumeFile) {
+        showError("Please select a resume file.");
+        return false;
+      }
+      
+      if (!jdFile) {
+        showError("Please select a job description file.");
+        return false;
+      }
+      
+      if (resumeFile.type !== "application/pdf") {
+        showError("Resume must be a PDF file.");
+        return false;
+      }
+      
+      if (jdFile.type !== "application/pdf") {
+        showError("Job description must be a PDF file.");
+        return false;
+      }
+      
+      return true;
     }
 
     async function startInterview() {
+      if (!validateFiles()) return;
+      
       const resumeFile = document.getElementById("resumeFile").files[0];
       const jdFile = document.getElementById("jdFile").files[0];
-      if (!resumeFile || !jdFile) { showError("Upload both files."); return; }
+      
+      // Disable start button and show loading
+      document.getElementById("startBtn").disabled = true;
+      showLoading("startLoading", true);
 
       const formData = new FormData();
       formData.append("action", "start_interview");
@@ -92,85 +323,231 @@
       formData.append("jobDescription", jdFile);
 
       try {
-        const res = await fetch(WEBHOOK_URL, { method: "POST", body: formData });
-        const data = await res.json();
-        console.log("Start response:", data);
+        const response = await fetch(WEBHOOK_URL, { 
+          method: "POST", 
+          body: formData 
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log("Start interview response:", data);
 
-        if (!data.success) throw new Error(data.message || "Start failed");
+        if (!data.success) {
+          throw new Error(data.message || "Failed to start interview");
+        }
 
+        // Store session data
         interviewData.sessionId = data.session_id;
-        localStorage.setItem("sessionId", data.session_id);
+        if (typeof(Storage) !== "undefined") {
+          localStorage.setItem("sessionId", data.session_id);
+        }
 
-        document.getElementById("uploadSection").style.display = "none";
-        document.getElementById("chatSection").style.display = "block";
+        // Switch to chat section
+        document.getElementById("uploadSection").classList.add("section-hidden");
+        document.getElementById("chatSection").classList.remove("section-hidden");
 
+        // Add first question if provided
         if (data.firstQuestion) {
           addMessage(data.firstQuestion, "ai");
           interviewData.currentQuestion = 1;
-          updateProgress((1 / interviewData.totalQuestions) * 100);
+          updateProgress(1);
+          interviewData.interviewStarted = true;
+        } else {
+          // Fallback first question
+          addMessage("Hello! I'm excited to conduct this interview with you. Let's start with: Can you tell me about yourself and why you're interested in this position?", "ai");
+          interviewData.currentQuestion = 1;
+          updateProgress(1);
+          interviewData.interviewStarted = true;
         }
 
-      } catch (err) { showError(err.message); }
+      } catch (error) {
+        console.error("Error starting interview:", error);
+        showError("Failed to start interview: " + error.message);
+      } finally {
+        document.getElementById("startBtn").disabled = false;
+        showLoading("startLoading", false);
+      }
     }
 
     async function sendMessage() {
       const input = document.getElementById("chatInput");
       const message = input.value.trim();
-      if (!message) return;
+      
+      if (!message) {
+        showError("Please enter a response.");
+        return;
+      }
+      
+      if (!interviewData.sessionId) {
+        showError("Session not found. Please restart the interview.");
+        return;
+      }
+
+      // Add user message and clear input
       addMessage(message, "user");
       input.value = "";
+      
+      // Disable send button and show loading
+      document.getElementById("sendBtn").disabled = true;
+      showLoading("chatLoading", true);
 
       const shouldContinue = interviewData.currentQuestion < interviewData.totalQuestions;
 
       try {
-        const res = await fetch(WEBHOOK_URL, {
+        const requestBody = {
+          action: shouldContinue ? "continue_interview" : "generate_feedback",
+          session_id: interviewData.sessionId,
+          userResponse: message,
+          conversationHistory: interviewData.conversationHistory,
+          questionCount: interviewData.currentQuestion
+        };
+
+        const response = await fetch(WEBHOOK_URL, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: shouldContinue ? "continue_interview" : "generate_feedback",
-            session_id: interviewData.sessionId,
-            userResponse: message,
-            conversationHistory: interviewData.conversationHistory,
-            questionCount: interviewData.currentQuestion
-          })
+          headers: { 
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+          },
+          body: JSON.stringify(requestBody)
         });
 
-        const data = await res.json();
-        console.log("Answer response:", data);
-
-        if (!data.success) throw new Error(data.message || "Failed");
-
-        if (shouldContinue && data.nextQuestion) {
-          addMessage(data.nextQuestion, "ai");
-          interviewData.currentQuestion++;
-          updateProgress((interviewData.currentQuestion / interviewData.totalQuestions) * 100);
-        } else {
-          addMessage("Interview complete! Generating feedback...", "ai");
-          setTimeout(() => generateFinalFeedback(), 1000);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
         }
 
-      } catch (err) { showError(err.message); }
+        const data = await response.json();
+        console.log("Send message response:", data);
+
+        if (!data.success) {
+          throw new Error(data.message || "Failed to process response");
+        }
+
+        if (shouldContinue && data.nextQuestion) {
+          // Add next question
+          addMessage(data.nextQuestion, "ai");
+          interviewData.currentQuestion++;
+          updateProgress(interviewData.currentQuestion);
+        } else {
+          // Interview completed
+          addMessage("🎉 Interview completed! Thank you for your responses. Generating your detailed feedback...", "ai");
+          updateProgress(interviewData.totalQuestions);
+          setTimeout(() => generateFinalFeedback(), 2000);
+        }
+
+      } catch (error) {
+        console.error("Error sending message:", error);
+        showError("Failed to send message: " + error.message);
+      } finally {
+        document.getElementById("sendBtn").disabled = false;
+        showLoading("chatLoading", false);
+      }
     }
 
     async function generateFinalFeedback() {
+      if (!interviewData.sessionId) {
+        showError("Session not found. Cannot generate feedback.");
+        return;
+      }
+
       try {
-        const res = await fetch(WEBHOOK_URL, {
+        const response = await fetch(WEBHOOK_URL, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { 
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+          },
           body: JSON.stringify({
             action: "generate_feedback",
             session_id: interviewData.sessionId,
             conversationHistory: interviewData.conversationHistory
           })
         });
-        const data = await res.json();
-        if (data.success) {
-          document.getElementById("chatSection").style.display = "none";
-          document.getElementById("feedbackSection").style.display = "block";
-          document.getElementById("feedbackContent").innerText = data.feedback;
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
         }
-      } catch (err) { showError("Feedback failed"); }
+
+        const data = await response.json();
+        console.log("Feedback response:", data);
+
+        if (data.success && data.feedback) {
+          // Switch to feedback section
+          document.getElementById("chatSection").classList.add("section-hidden");
+          document.getElementById("feedbackSection").classList.remove("section-hidden");
+          document.getElementById("feedbackContent").textContent = data.feedback;
+        } else {
+          throw new Error(data.message || "No feedback received");
+        }
+
+      } catch (error) {
+        console.error("Error generating feedback:", error);
+        showError("Failed to generate feedback: " + error.message);
+        // Show fallback feedback
+        document.getElementById("chatSection").classList.add("section-hidden");
+        document.getElementById("feedbackSection").classList.remove("section-hidden");
+        document.getElementById("feedbackContent").textContent = "Thank you for completing the interview! Unfortunately, we couldn't generate detailed feedback at this time. Please try again later.";
+      }
     }
+
+    function resetInterview() {
+      // Reset all data
+      interviewData = {
+        sessionId: null,
+        conversationHistory: [],
+        currentQuestion: 0,
+        totalQuestions: 8,
+        interviewStarted: false
+      };
+      
+      // Clear localStorage
+      if (typeof(Storage) !== "undefined") {
+        localStorage.removeItem("sessionId");
+      }
+      
+      // Clear form inputs
+      document.getElementById("resumeFile").value = "";
+      document.getElementById("jdFile").value = "";
+      document.getElementById("chatInput").value = "";
+      document.getElementById("chatBox").innerHTML = "";
+      
+      // Reset progress
+      updateProgress(0);
+      
+      // Show upload section
+      document.getElementById("uploadSection").classList.remove("section-hidden");
+      document.getElementById("chatSection").classList.add("section-hidden");
+      document.getElementById("feedbackSection").classList.add("section-hidden");
+      
+      // Hide any error messages
+      document.getElementById("errorMessage").style.display = "none";
+    }
+
+    // Add enter key support for chat input
+    document.addEventListener("DOMContentLoaded", function() {
+      const chatInput = document.getElementById("chatInput");
+      if (chatInput) {
+        chatInput.addEventListener("keypress", function(event) {
+          if (event.key === "Enter" && !event.shiftKey) {
+            event.preventDefault();
+            sendMessage();
+          }
+        });
+      }
+      
+      // Try to restore session if available
+      if (typeof(Storage) !== "undefined") {
+        const savedSessionId = localStorage.getItem("sessionId");
+        if (savedSessionId) {
+          interviewData.sessionId = savedSessionId;
+        }
+      }
+    });
+
+    // Log when page loads
+    console.log("AI Interview Assistant loaded successfully");
   </script>
 </body>
 </html>
