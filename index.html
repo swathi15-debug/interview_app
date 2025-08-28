@@ -5,19 +5,54 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>AI Interview Assistant</title>
   <style>
-    /* your full CSS unchanged */
+    body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #f4f4f9; }
+    .container { max-width: 700px; margin: auto; padding: 20px; }
+    h1 { text-align: center; }
+    #uploadSection, #chatSection, #feedbackSection { margin-top: 20px; }
+    .chat-box { border: 1px solid #ccc; border-radius: 8px; padding: 10px; height: 300px; overflow-y: auto; background: #fff; }
+    .chat-message { margin: 10px 0; }
+    .chat-message.user { text-align: right; color: #0066cc; }
+    .chat-message.ai { text-align: left; color: #333; }
+    #chatInput { width: 80%; padding: 8px; }
+    button { padding: 8px 14px; margin-left: 5px; cursor: pointer; border: none; border-radius: 4px; background: #0066cc; color: white; }
+    button:hover { background: #004c99; }
+    #errorMessage { color: red; display: none; margin-top: 10px; }
+    #progressBar { width: 100%; height: 12px; background: #ddd; margin-top: 15px; border-radius: 6px; overflow: hidden; }
+    #progressFill { height: 100%; width: 0%; background: #28a745; transition: width 0.3s; }
   </style>
 </head>
 <body>
   <div class="container">
-    <!-- your UI unchanged (upload, chat, feedback, etc.) -->
+    <h1>AI Interview Assistant</h1>
+
+    <!-- Upload Section -->
+    <div id="uploadSection">
+      <p>Upload Resume (PDF) and Job Description (PDF):</p>
+      <input type="file" id="resumeFile" accept="application/pdf" />
+      <input type="file" id="jdFile" accept="application/pdf" />
+      <button onclick="startInterview()">Start Interview</button>
+    </div>
+
+    <!-- Chat Section -->
+    <div id="chatSection" style="display:none;">
+      <div class="chat-box" id="chatBox"></div>
+      <input type="text" id="chatInput" placeholder="Type your answer..." />
+      <button onclick="sendMessage()">Send</button>
+      <div id="progressBar"><div id="progressFill"></div></div>
+    </div>
+
+    <!-- Feedback Section -->
+    <div id="feedbackSection" style="display:none;">
+      <h2>Interview Feedback</h2>
+      <div id="feedbackContent"></div>
+    </div>
+
+    <div id="errorMessage"></div>
   </div>
 
   <script>
     let interviewData = {
-      sessionId: null,   // 🔑 will hold session_id from backend
-      resumeContent: '',
-      jdContent: '',
+      sessionId: null,
       conversationHistory: [],
       currentQuestion: 0,
       totalQuestions: 8,
@@ -26,49 +61,45 @@
 
     const WEBHOOK_URL = "https://swathigude.app.n8n.cloud/webhook/interview-webhook1";
 
-    function showError(message) {
-      const errorDiv = document.getElementById('errorMessage');
-      errorDiv.textContent = message;
-      errorDiv.style.display = 'block';
-      setTimeout(() => errorDiv.style.display = 'none', 5000);
+    function showError(msg) {
+      const e = document.getElementById("errorMessage");
+      e.textContent = msg;
+      e.style.display = "block";
+      setTimeout(() => e.style.display = "none", 5000);
+    }
+
+    function addMessage(text, sender) {
+      const chatBox = document.getElementById("chatBox");
+      const msg = document.createElement("div");
+      msg.className = "chat-message " + sender;
+      msg.textContent = text;
+      chatBox.appendChild(msg);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    function updateProgress(percent) {
+      document.getElementById("progressFill").style.width = percent + "%";
     }
 
     async function startInterview() {
-      const resumeFile = document.getElementById('resumeFile').files[0];
-      const jdFile = document.getElementById('jdFile').files[0];
+      const resumeFile = document.getElementById("resumeFile").files[0];
+      const jdFile = document.getElementById("jdFile").files[0];
+      if (!resumeFile || !jdFile) { showError("Upload both files."); return; }
 
-      if (!resumeFile || !jdFile) {
-        showError("Please upload both resume and job description files.");
-        return;
-      }
-
-      showLoading(true);
-      updateProgress(20);
+      const formData = new FormData();
+      formData.append("action", "start_interview");
+      formData.append("resume", resumeFile);
+      formData.append("jobDescription", jdFile);
 
       try {
-        const formData = new FormData();
-        formData.append("action", "start_interview");
-        formData.append("resume", resumeFile);
-        formData.append("jobDescription", jdFile);
+        const res = await fetch(WEBHOOK_URL, { method: "POST", body: formData });
+        const data = await res.json();
+        console.log("Start response:", data);
 
-        const response = await fetch(WEBHOOK_URL, {
-          method: "POST",
-          body: formData
-        });
+        if (!data.success) throw new Error(data.message || "Start failed");
 
-        updateProgress(60);
-        const data = await response.json();
-        console.log("Interview start response:", data);
-
-        if (!data.success) throw new Error(data.message || "Failed to start interview");
-
-        // 🔑 Save session_id globally
         interviewData.sessionId = data.session_id;
         localStorage.setItem("sessionId", data.session_id);
-
-        interviewData.interviewStarted = true;
-        updateProgress(100);
-        showLoading(false);
 
         document.getElementById("uploadSection").style.display = "none";
         document.getElementById("chatSection").style.display = "block";
@@ -76,100 +107,70 @@
         if (data.firstQuestion) {
           addMessage(data.firstQuestion, "ai");
           interviewData.currentQuestion = 1;
-          updateProgress((interviewData.currentQuestion / interviewData.totalQuestions) * 100);
+          updateProgress((1 / interviewData.totalQuestions) * 100);
         }
 
-      } catch (err) {
-        console.error("Error starting interview:", err);
-        showError(err.message);
-        showLoading(false);
-      }
+      } catch (err) { showError(err.message); }
     }
 
     async function sendMessage() {
       const input = document.getElementById("chatInput");
       const message = input.value.trim();
       if (!message) return;
-
       addMessage(message, "user");
       input.value = "";
 
-      interviewData.conversationHistory.push({
-        role: "user",
-        content: message,
-        timestamp: new Date().toISOString()
-      });
-
-      showTyping(true);
+      const shouldContinue = interviewData.currentQuestion < interviewData.totalQuestions;
 
       try {
-        const shouldContinue = interviewData.currentQuestion < interviewData.totalQuestions;
-
-        const body = {
-          action: shouldContinue ? "continue_interview" : "generate_feedback",
-          session_id: interviewData.sessionId,  // 🔑 Always include saved session_id
-          userResponse: message,
-          conversationHistory: interviewData.conversationHistory,
-          questionCount: interviewData.currentQuestion
-        };
-
-        const response = await fetch(WEBHOOK_URL, {
+        const res = await fetch(WEBHOOK_URL, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body)
+          body: JSON.stringify({
+            action: shouldContinue ? "continue_interview" : "generate_feedback",
+            session_id: interviewData.sessionId,
+            userResponse: message,
+            conversationHistory: interviewData.conversationHistory,
+            questionCount: interviewData.currentQuestion
+          })
         });
 
-        const data = await response.json();
-        showTyping(false);
+        const data = await res.json();
         console.log("Answer response:", data);
 
-        if (!data.success) throw new Error(data.message || "Failed to process answer");
+        if (!data.success) throw new Error(data.message || "Failed");
 
         if (shouldContinue && data.nextQuestion) {
-          setTimeout(() => {
-            addMessage(data.nextQuestion, "ai");
-            interviewData.currentQuestion++;
-            updateProgress((interviewData.currentQuestion / interviewData.totalQuestions) * 100);
-            interviewData.conversationHistory.push({
-              role: "assistant",
-              content: data.nextQuestion,
-              timestamp: new Date().toISOString()
-            });
-          }, 1000);
+          addMessage(data.nextQuestion, "ai");
+          interviewData.currentQuestion++;
+          updateProgress((interviewData.currentQuestion / interviewData.totalQuestions) * 100);
         } else {
-          addMessage("Thank you for completing the interview! Generating feedback...", "ai");
-          setTimeout(() => generateFinalFeedback(), 2000);
+          addMessage("Interview complete! Generating feedback...", "ai");
+          setTimeout(() => generateFinalFeedback(), 1000);
         }
-      } catch (err) {
-        showTyping(false);
-        showError(err.message);
-        addMessage("Sorry, I couldn't process that. Please try again.", "ai");
-      }
+
+      } catch (err) { showError(err.message); }
     }
 
     async function generateFinalFeedback() {
       try {
-        const response = await fetch(WEBHOOK_URL, {
+        const res = await fetch(WEBHOOK_URL, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             action: "generate_feedback",
-            session_id: interviewData.sessionId, // 🔑 still sending
+            session_id: interviewData.sessionId,
             conversationHistory: interviewData.conversationHistory
           })
         });
-        const data = await response.json();
+        const data = await res.json();
         if (data.success) {
           document.getElementById("chatSection").style.display = "none";
-          showFeedback(data.feedback);
+          document.getElementById("feedbackSection").style.display = "block";
+          document.getElementById("feedbackContent").innerText = data.feedback;
         }
-      } catch (err) {
-        showError("Feedback generation failed");
-      }
+      } catch (err) { showError("Feedback failed"); }
     }
-
-    /* keep all your helper functions unchanged: addMessage, showTyping, showFeedback,
-       endInterview, restartInterview, downloadFeedback, showLoading, updateProgress, etc. */
   </script>
 </body>
 </html>
