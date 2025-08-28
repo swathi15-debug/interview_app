@@ -394,16 +394,28 @@
       document.getElementById("sendBtn").disabled = true;
       showLoading("chatLoading", true);
 
-      const shouldContinue = interviewData.currentQuestion < interviewData.totalQuestions;
+      // Check if this is the last question
+      const isLastQuestion = interviewData.currentQuestion >= interviewData.totalQuestions;
 
       try {
+        if (isLastQuestion) {
+          // This is the final answer, go directly to feedback generation
+          addMessage("🎉 Interview completed! Thank you for your responses. Generating your detailed feedback...", "ai");
+          updateProgress(interviewData.totalQuestions);
+          setTimeout(() => generateFinalFeedback(), 2000);
+          return;
+        }
+
+        // Continue with next question
         const requestBody = {
-          action: shouldContinue ? "continue_interview" : "generate_feedback",
+          action: "continue_interview",
           session_id: interviewData.sessionId,
           userResponse: message,
           conversationHistory: interviewData.conversationHistory,
           questionCount: interviewData.currentQuestion
         };
+
+        console.log("Sending request:", requestBody);
 
         const response = await fetch(WEBHOOK_URL, {
           method: "POST",
@@ -425,13 +437,13 @@
           throw new Error(data.message || "Failed to process response");
         }
 
-        if (shouldContinue && data.nextQuestion) {
+        if (data.nextQuestion) {
           // Add next question
           addMessage(data.nextQuestion, "ai");
           interviewData.currentQuestion++;
           updateProgress(interviewData.currentQuestion);
         } else {
-          // Interview completed
+          // No next question received, end interview
           addMessage("🎉 Interview completed! Thank you for your responses. Generating your detailed feedback...", "ai");
           updateProgress(interviewData.totalQuestions);
           setTimeout(() => generateFinalFeedback(), 2000);
@@ -453,17 +465,23 @@
       }
 
       try {
+        const requestBody = {
+          action: "generate_feedback",
+          session_id: interviewData.sessionId,
+          conversationHistory: interviewData.conversationHistory,
+          totalQuestions: interviewData.totalQuestions,
+          completedQuestions: interviewData.currentQuestion
+        };
+
+        console.log("Generating feedback with:", requestBody);
+
         const response = await fetch(WEBHOOK_URL, {
           method: "POST",
           headers: { 
             "Content-Type": "application/json",
             "Accept": "application/json"
           },
-          body: JSON.stringify({
-            action: "generate_feedback",
-            session_id: interviewData.sessionId,
-            conversationHistory: interviewData.conversationHistory
-          })
+          body: JSON.stringify(requestBody)
         });
 
         if (!response.ok) {
